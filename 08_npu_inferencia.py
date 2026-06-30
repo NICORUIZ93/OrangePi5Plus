@@ -92,7 +92,13 @@ IMAGEN = "space_shuttle_224.jpg"
 def descargar_si_falta(nombre: str, url: str) -> None:
     if not os.path.exists(nombre):
         print(f"  Descargando {nombre} ...")
-        urllib.request.urlretrieve(url, nombre)
+        try:
+            urllib.request.urlretrieve(url, nombre)
+        except Exception as e:
+            # Eliminar archivo parcial para que el siguiente intento descargue completo
+            if os.path.exists(nombre):
+                os.remove(nombre)
+            raise RuntimeError(f"Error al descargar {nombre}: {e}") from e
         print(f"  {os.path.getsize(nombre) / 1e6:.1f} MB descargados.")
 
 
@@ -104,36 +110,49 @@ descargar_si_falta(IMAGEN, f"{REPO}/{IMAGEN}")
 
 rknn = RKNNLite()
 
-print("2. Cargando modelo ResNet-18 compilado para RK3588...")
-rknn.load_rknn(MODELO)
+try:
+    print("2. Cargando modelo ResNet-18 compilado para RK3588...")
+    ret = rknn.load_rknn(MODELO)
+    if ret != 0:
+        raise RuntimeError(
+            f"load_rknn() retornó código {ret}.\n"
+            f"Verifique que el archivo '{MODELO}' exista y no esté corrupto."
+        )
 
-print("3. Inicializando runtime del NPU (rknpu)...")
-codigo = rknn.init_runtime()
-if codigo != 0:
-    raise RuntimeError(
-        f"init_runtime() retornó código {codigo}.\n"
-        "Verifique que el módulo rknpu esté cargado:\n"
-        "    lsmod | grep rknpu"
-    )
-print("   Runtime inicializado correctamente.")
+    print("3. Inicializando runtime del NPU (rknpu)...")
+    ret = rknn.init_runtime()
+    if ret != 0:
+        raise RuntimeError(
+            f"init_runtime() retornó código {ret}.\n"
+            "Verifique que el módulo rknpu esté cargado:\n"
+            "    lsmod | grep rknpu"
+        )
+    print("   Runtime inicializado correctamente.")
 
-print("4. Preparando tensor de entrada...")
-imagen_bgr = cv2.imread(IMAGEN)
-imagen_rgb = cv2.cvtColor(imagen_bgr, cv2.COLOR_BGR2RGB)
-tensor     = np.expand_dims(imagen_rgb, axis=0)   # → forma [1, 224, 224, 3]
-print(f"   Tensor: forma {tensor.shape}, dtype {tensor.dtype}")
+    print("4. Preparando tensor de entrada...")
+    imagen_bgr = cv2.imread(IMAGEN)
+    if imagen_bgr is None:
+        raise RuntimeError(
+            f"cv2.imread() no pudo leer '{IMAGEN}'.\n"
+            "El archivo puede estar corrupto. Elimínelo y vuelva a ejecutar."
+        )
+    imagen_rgb = cv2.cvtColor(imagen_bgr, cv2.COLOR_BGR2RGB)
+    tensor     = np.expand_dims(imagen_rgb, axis=0)   # → forma [1, 224, 224, 3]
+    print(f"   Tensor: forma {tensor.shape}, dtype {tensor.dtype}")
 
-print("5. Ejecutando inferencia en el NPU...")
-salidas = rknn.inference(inputs=[tensor])
+    print("5. Ejecutando inferencia en el NPU...")
+    salidas = rknn.inference(inputs=[tensor])
 
-clase   = int(np.argmax(salidas[0]))
-puntaje = float(salidas[0][0][clase])
+    clase   = int(np.argmax(salidas[0]))
+    puntaje = float(salidas[0][0][clase])
 
-print()
-print("=== Resultado ===")
-print(f"  Clase predicha (índice ImageNet) : {clase}")
-print(f"  Puntaje de confianza             : {puntaje:.4f}")
-print(f"  Clase 812 en ImageNet            : 'space shuttle'")
-print(f"  Clasificación {'correcta' if clase == 812 else 'incorrecta'}.")
+    print()
+    print("=== Resultado ===")
+    print(f"  Clase predicha (índice ImageNet) : {clase}")
+    print(f"  Puntaje de confianza             : {puntaje:.4f}")
+    print(f"  Clase 812 en ImageNet            : 'space shuttle'")
+    print(f"  Clasificación {'correcta' if clase == 812 else 'incorrecta'}.")
 
-rknn.release()
+finally:
+    # Siempre liberar recursos del driver, incluso si ocurrió una excepción
+    rknn.release()
