@@ -272,15 +272,12 @@ duty_cycle = t_alto / T × 100%
 - **Dimmer de LED:** duty cycle determina el brillo percibido (sin parpadeo visible > 50 Hz)
 - **Generación de señales analógicas:** con un filtro paso-bajo, PWM produce una señal analógica
 
-### El problema del overlay pwm0-m0
+### PWM14 en el cabecero de 40 pines
 
-La imagen oficial activa por defecto el overlay `pwm0-m0`, que controla el pin GPIO0_15. Este pin está físicamente compartido con el bus I2C interno `feaa0000.i2c`, que lo reclama primero durante el arranque:
-
-```
-[    5.234] rockchip-pinctrl: pin gpio0-15 already requested by feaa0000.i2c
-```
-
-**Solución:** usar el overlay `pwm14-m0`, que controla el pin físico 7 del cabecero. `setup_gpio_permissions.sh` realiza este cambio automáticamente en `/boot/orangepiEnv.txt`.
+El servo se controla con el pin físico 7 del cabecero. En esta imagen de
+Orange Pi 5 Plus, ese pin usa el overlay `pwm14-m0` y aparece en Linux como
+`/sys/class/pwm/pwmchip2/pwm0`. `setup_gpio_permissions.sh` configura el
+overlay y el servicio de permisos para dejarlo disponible en cada arranque.
 
 ### La interfaz sysfs de PWM
 
@@ -360,8 +357,8 @@ escribir(f"{CANAL_PWM}/duty_cycle", 1_500_000)  # centro: 1.5 ms
 cat /boot/orangepiEnv.txt | grep pwm
 # Debe mostrar: overlays=... pwm14-m0 ...
 
-# Ver qué pwmchip corresponde al overlay pwm14
-cat /sys/class/pwm/pwmchip*/device/uevent | grep -B1 DRIVER
+# Verificar que el canal PWM14 está exportado
+ls -la /sys/class/pwm/pwmchip2/pwm0
 ```
 
 ```bash
@@ -375,7 +372,7 @@ python3 03_pwm_servo.py
 - **I2C** usa dos hilos (SDA/SCL) para comunicar múltiples dispositivos en un bus compartido mediante direcciones de 7 bits.
 - **SPI** usa cuatro hilos (MOSI/MISO/SCLK/CS) para comunicación full-duplex de alta velocidad, con un CS por dispositivo.
 - **PWM** genera señales periódicas cuyo duty cycle o ancho de pulso controla periféricos analógicos como servos y motores.
-- El overlay `pwm0-m0` de la imagen oficial es inoperable; el correcto es `pwm14-m0` (pin físico 7).
+- El servo del módulo usa PWM14 en el pin físico 7, expuesto como `/sys/class/pwm/pwmchip2/pwm0`.
 - `spidev.xfer2()` modifica la lista de entrada in-place; siempre pasar una copia.
 
 ## Ejercicios

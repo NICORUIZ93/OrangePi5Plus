@@ -23,10 +23,11 @@ SUBSYSTEM=="leds", ACTION=="add", RUN+="/bin/chgrp -R gpio /sys%p", RUN+="/bin/c
 EOF
 
 echo "Overlay PWM14 (servo, pin físico 7) y SPI0 (CS0+CS1) en orangepiEnv.txt..."
-sudo sed -i \
-  -e 's/\bpwm0-m0\b/pwm14-m0/' \
-  -e '/spi0-m2-cs0-cs1-spidev/!s/$/ spi0-m2-cs0-cs1-spidev/' \
-  /boot/orangepiEnv.txt
+if grep -q '^overlays=' /boot/orangepiEnv.txt; then
+  sudo sed -i 's/^overlays=.*/overlays=i2c2-m0 pwm14-m0 spi0-m2-cs0-cs1-spidev/' /boot/orangepiEnv.txt
+else
+  echo 'overlays=i2c2-m0 pwm14-m0 spi0-m2-cs0-cs1-spidev' | sudo tee -a /boot/orangepiEnv.txt > /dev/null
+fi
 grep "overlays=" /boot/orangepiEnv.txt
 
 echo "Servicio systemd que auto-exporta y da permisos al canal PWM en cada arranque..."
@@ -37,7 +38,7 @@ After=sysinit.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash -c 'echo 0 > /sys/class/pwm/pwmchip2/pwm0/export 2>/dev/null; sleep 0.2; chgrp -R gpio /sys/class/pwm/pwmchip2/pwm0; chmod -R g+rw /sys/class/pwm/pwmchip2/pwm0'
+ExecStart=/bin/bash -c 'test -d /sys/class/pwm/pwmchip2/pwm0 || echo 0 > /sys/class/pwm/pwmchip2/export; sleep 0.2; chgrp -R gpio /sys/class/pwm/pwmchip2; chmod -R g+rw /sys/class/pwm/pwmchip2'
 RemainAfterExit=true
 
 [Install]
@@ -52,4 +53,3 @@ sudo udevadm trigger
 echo
 echo "Listo. REINICIA (sudo reboot) para que los grupos nuevos y el overlay PWM14 apliquen."
 echo "Nota: pwmchip2 corresponde a PWM14 en esta imagen (Orange Pi 5 Plus, kernel 5.10.110-rockchip-rk3588)."
-echo "Si tu placa/kernel difiere, verifica con: cat /sys/class/pwm/pwmchip*/device/uevent | grep -B1 DRIVER"

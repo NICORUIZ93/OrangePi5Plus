@@ -78,7 +78,7 @@ Por defecto, en la imagen oficial de Orange Pi:
 - Los archivos `/dev/gpiochip*` pertenecen a `root:root`.
 - Los archivos `/dev/i2c-*` tienen grupo `i2c` pero el usuario no pertenece a ese grupo.
 - El grupo `spi` no existe.
-- El overlay de PWM por defecto (`pwm0-m0`) es inoperable.
+- El canal PWM14 necesita quedar exportado con permisos para el grupo `gpio`.
 
 ### 2.2 setup_gpio_permissions.sh
 
@@ -88,7 +88,7 @@ Este script realiza las siguientes operaciones (todas son idempotentes):
 2. Agrega el usuario actual a esos tres grupos.
 3. Instala `gpiod` (herramientas de línea de comandos de libgpiod).
 4. Escribe reglas udev en `/etc/udev/rules.d/` para asignar los grupos correctos a `/dev/gpiochip*` y `/dev/spidev*`.
-5. Modifica `/boot/orangepiEnv.txt`: reemplaza el overlay `pwm0-m0` por `pwm14-m0` y agrega `spi0-m2-cs0-cs1-spidev` e `i2c2-m0`.
+5. Configura `/boot/orangepiEnv.txt` con `i2c2-m0`, `pwm14-m0` y `spi0-m2-cs0-cs1-spidev`.
 6. Crea e instala el servicio systemd `pwm-setup.service`, que en cada arranque exporta el canal PWM y le asigna permisos de grupo.
 
 ```bash
@@ -550,32 +550,7 @@ ls -la /dev/gpiochip*             # verifica propietario y modo del device
 ./setup_gpio_permissions.sh && sudo reboot
 ```
 
-### B.2 Error de I/O al habilitar PWM
-
-**Síntoma:**
-```
-OSError: [Errno 5] Input/output error
-```
-al escribir en `/sys/class/pwm/pwmchip0/pwm0/enable`.
-
-**Causa:** El overlay `pwm0-m0` está activo. El pin GPIO0_15 que controla ya fue reclamado por `feaa0000.i2c` durante el arranque. El mensaje en dmesg es:
-```
-rockchip-pinctrl: pin gpio0-15 already requested by feaa0000.i2c
-```
-
-**Verificación:**
-```bash
-cat /boot/orangepiEnv.txt | grep overlays
-```
-
-**Solución:** Reemplazar `pwm0-m0` por `pwm14-m0` en `/boot/orangepiEnv.txt` y reiniciar. `setup_gpio_permissions.sh` realiza este cambio automáticamente.
-
-Para identificar qué `pwmchip` corresponde a `pwm14-m0` tras el reinicio:
-```bash
-cat /sys/class/pwm/pwmchip*/device/uevent | grep -B1 DRIVER
-```
-
-### B.3 Mensajes RKNPU en dmesg
+### B.2 Mensajes RKNPU en dmesg
 
 **Síntoma:**
 ```

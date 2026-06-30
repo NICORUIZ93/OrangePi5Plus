@@ -9,6 +9,58 @@ Este repositorio contiene una serie de módulos de código y documentación téc
 
 Cada módulo Python incluye la fundamentación teórica del subsistema correspondiente, la especificación de las conexiones de hardware y el código documentado. La guía `TUTORIAL.md` desarrolla en detalle la teoría y los procedimientos de cada módulo.
 
+El libro completo del curso está en [`libro/`](libro/). Su índice general se encuentra en [`libro/00_indice.md`](libro/00_indice.md).
+
+## Cómo usar este repositorio
+
+1. Lea primero el índice del libro: [`libro/00_indice.md`](libro/00_indice.md).
+2. Prepare la placa con los scripts de configuración inicial.
+3. Estudie los capítulos en orden, desde la Parte 1 hasta la Parte 4.
+4. Ejecute el script asociado a cada capítulo práctico.
+5. Verifique el resultado con el hardware indicado antes de pasar al siguiente módulo.
+
+Ruta recomendada:
+
+| Etapa | Lectura | Práctica |
+|---|---|---|
+| Fundamentos | [cap01](libro/cap01_presentacion.md) a [cap04](libro/cap04_python.md) | Terminal, Linux y Python |
+| GPIO | [cap05_gpio.md](libro/cap05_gpio.md) | [01_gpio_salida.py](01_gpio_salida.py), [02_gpio_entrada.py](02_gpio_entrada.py) |
+| Comunicación | [cap06_comunicacion.md](libro/cap06_comunicacion.md) | [03_pwm_servo.py](03_pwm_servo.py), [04_i2c_escaneo.py](04_i2c_escaneo.py), [05_i2c_oled.py](05_i2c_oled.py), [06_spi_loopback.py](06_spi_loopback.py) |
+| Integrados | [cap07_integrados.md](libro/cap07_integrados.md) | [07_leds_integrados.py](07_leds_integrados.py) |
+| Sistema | [cap08](libro/cap08_compilacion.md) a [cap11](libro/cap11_drivers.md) | Compilación, Buildroot, demonios y drivers |
+| NPU y proyectos | [cap12_npu.md](libro/cap12_npu.md), [cap13_proyectos.md](libro/cap13_proyectos.md) | [08_npu_inferencia.py](08_npu_inferencia.py) y proyectos integradores |
+
+## Mapa conceptual
+
+```mermaid
+flowchart TD
+    A[Orange Pi 5 Plus / RK3588] --> B[Linux BSP y Device Tree]
+    B --> C[Entorno de desarrollo]
+    C --> D[Python]
+    C --> E[C y bajo nivel]
+
+    D --> GPIO[GPIO]
+    D --> PWM[PWM]
+    D --> I2C[I2C]
+    D --> SPI[SPI]
+    D --> LEDS[LEDs integrados]
+    D --> NPU[NPU RKNN]
+
+    GPIO --> G1[Cap. 5<br/>01_gpio_salida.py<br/>02_gpio_entrada.py]
+    PWM --> P1[Cap. 6<br/>03_pwm_servo.py]
+    I2C --> I1[Cap. 6<br/>04_i2c_escaneo.py<br/>05_i2c_oled.py]
+    SPI --> S1[Cap. 6<br/>06_spi_loopback.py]
+    LEDS --> L1[Cap. 7<br/>07_leds_integrados.py]
+    NPU --> N1[Cap. 12<br/>08_npu_inferencia.py]
+
+    E --> SYS[Caps. 8-11<br/>compilación, Buildroot,<br/>demonios y drivers]
+    G1 --> PROY[Cap. 13<br/>proyectos integradores]
+    P1 --> PROY
+    I1 --> PROY
+    S1 --> PROY
+    N1 --> PROY
+```
+
 ## Especificaciones del hardware
 
 | Componente | Especificación |
@@ -44,22 +96,21 @@ pip3 install gpiod smbus2 spidev luma.oled opencv-python numpy
 
 | Archivo | Subsistema | Descripción |
 |---|---|---|
-| `setup_gpio_permissions.sh` | Sistema | Permisos de GPIO, I2C, SPI, PWM y LEDs |
-| `setup_npu.sh` | Sistema | Instalación del runtime RKNN |
-| `01_gpio_salida.py` | GPIO | Control de salida digital mediante libgpiod v2 |
-| `02_gpio_entrada.py` | GPIO | Lectura de entrada digital con detección de flancos |
-| `03_pwm_servo.py` | PWM | Control de servomotor mediante PWM por hardware |
-| `04_i2c_escaneo.py` | I2C | Enumeración de dispositivos en el bus I2C |
-| `05_i2c_oled.py` | I2C | Control de pantalla OLED SSD1306 (128×64) |
-| `06_spi_loopback.py` | SPI | Verificación del bus SPI mediante loopback |
-| `07_leds_integrados.py` | LED | Control de LEDs de la placa mediante sysfs |
-| `08_npu_inferencia.py` | NPU | Clasificación de imágenes con ResNet-18 en el NPU |
-| `TUTORIAL.md` | Documentación | Guía académica completa con teoría y procedimientos |
+| [setup_gpio_permissions.sh](setup_gpio_permissions.sh) | Sistema | Permisos de GPIO, I2C, SPI, PWM y LEDs |
+| [setup_npu.sh](setup_npu.sh) | Sistema | Instalación del runtime RKNN |
+| [01_gpio_salida.py](01_gpio_salida.py) | GPIO | Control de salida digital mediante libgpiod v2 |
+| [02_gpio_entrada.py](02_gpio_entrada.py) | GPIO | Lectura de entrada digital con detección de flancos |
+| [03_pwm_servo.py](03_pwm_servo.py) | PWM | Control de servomotor mediante PWM por hardware |
+| [04_i2c_escaneo.py](04_i2c_escaneo.py) | I2C | Enumeración de dispositivos en el bus I2C |
+| [05_i2c_oled.py](05_i2c_oled.py) | I2C | Control de pantalla OLED SSD1306 (128x64) |
+| [06_spi_loopback.py](06_spi_loopback.py) | SPI | Verificación del bus SPI mediante loopback |
+| [07_leds_integrados.py](07_leds_integrados.py) | LED | Control de LEDs de la placa mediante sysfs |
+| [08_npu_inferencia.py](08_npu_inferencia.py) | NPU | Clasificación de imágenes con ResNet-18 en el NPU |
+| [TUTORIAL.md](TUTORIAL.md) | Documentación | Guía académica completa con teoría y procedimientos |
 
 ## Problemas conocidos del BSP
 
 | Síntoma | Causa raíz | Solución |
 |---|---|---|
-| `I/O error` al escribir en `/sys/class/pwm/pwmchip0/export` | El overlay `pwm0-m0` comparte el pin GPIO0_15 con `feaa0000.i2c`, que lo reclama durante el arranque | `setup_gpio_permissions.sh` cambia el overlay a `pwm14-m0` |
 | Mensajes `RKNPU: can't request region` en dmesg | Defecto del árbol BSP 5.10 | Sin impacto funcional; el NPU opera correctamente |
 | Acceso denegado a `/dev/gpiochipN`, `/dev/i2c-*`, `/dev/spidev*` | El usuario no pertenece a los grupos `gpio`, `i2c` y `spi` | `setup_gpio_permissions.sh` |

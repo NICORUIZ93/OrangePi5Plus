@@ -47,18 +47,15 @@ virtuales en /sys/class/pwm/:
 
 Todos los valores se expresan en nanosegundos para máxima resolución.
 
-Problema conocido: overlay pwm0-m0
-------------------------------------
-El overlay activo por defecto en la imagen oficial de Orange Pi es
-pwm0-m0, que controla el pin GPIO0_15. Este pin está físicamente
-compartido con el bus I2C interno feaa0000.i2c, que lo reclama durante
-el arranque. El intento de habilitarlo produce el error:
+PWM14 en la Orange Pi 5 Plus
+----------------------------
+El servo usa el pin físico 7 del cabecero de 40 pines. En esta imagen
+ese pin corresponde al overlay pwm14-m0 y al controlador:
 
-    rockchip-pinctrl: pin gpio0-15 already requested by feaa0000.i2c
+    /sys/class/pwm/pwmchip2/pwm0
 
-El pin PWM realmente disponible en el cabecero de 40 pines (pin físico 7)
-corresponde al overlay pwm14-m0, que expone /sys/class/pwm/pwmchip2.
-setup_gpio_permissions.sh realiza esta corrección automáticamente.
+setup_gpio_permissions.sh configura el overlay, exporta el canal y asigna
+permisos al grupo gpio en cada arranque.
 
 Conexiones de hardware
 -----------------------
@@ -93,6 +90,11 @@ def escribir_sysfs(ruta: str, valor) -> None:
         archivo.write(str(valor))
 
 
+def leer_sysfs(ruta: str) -> str:
+    with open(ruta, "r") as archivo:
+        return archivo.read().strip()
+
+
 def exportar_canal() -> None:
     """Solicita al kernel que instancie el canal pwm0 si no existe aún."""
     if not os.path.isdir(CANAL_PWM):
@@ -110,7 +112,11 @@ def establecer_posicion(microsegundos: int) -> None:
 
 
 exportar_canal()
+if leer_sysfs(f"{CANAL_PWM}/enable") == "1":
+    escribir_sysfs(f"{CANAL_PWM}/enable", 0)
+escribir_sysfs(f"{CANAL_PWM}/duty_cycle", 0)
 escribir_sysfs(f"{CANAL_PWM}/period", PERIODO_NS)
+establecer_posicion(PULSO_CTR)
 escribir_sysfs(f"{CANAL_PWM}/enable", 1)
 
 print("Servomotor inicializado.")
@@ -120,7 +126,11 @@ print()
 
 try:
     while True:
-        entrada = input(f"Ancho de pulso en µs [{PULSO_MIN}–{PULSO_MAX}]: ")
+        try:
+            entrada = input(f"Ancho de pulso en µs [{PULSO_MIN}–{PULSO_MAX}]: ")
+        except EOFError:
+            break
+
         try:
             pulso = int(entrada)
             establecer_posicion(pulso)
@@ -130,5 +140,7 @@ try:
             print(f"  Error: {error}")
 
 except KeyboardInterrupt:
+    pass
+finally:
     escribir_sysfs(f"{CANAL_PWM}/enable", 0)
     print("\nPWM desactivado.")
