@@ -182,6 +182,16 @@ ssh-copy-id orangepi@192.168.1.105
 ssh orangepi@192.168.1.105
 ```
 
+### 2.4.4 Acceso gráfico desde macOS
+
+Para controlar la placa desde un MacBook con interfaz gráfica se validó una
+sesión RDP con `xrdp`, backend `Xvnc` y escritorio `XFCE`. Esta configuración
+evita el fallo de permisos de consola virtual que puede aparecer con el backend
+`Xorg` en la imagen Ubuntu 22.04 para RK3588.
+
+La guía completa está en
+[`docs/acceso_grafico_macos.md`](../docs/acceso_grafico_macos.md).
+
 ---
 
 ## 2.5 Actualización del sistema

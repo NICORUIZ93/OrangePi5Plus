@@ -30,6 +30,13 @@ Ruta recomendada:
 | Sistema | [cap08](libro/cap08_compilacion.md) a [cap11](libro/cap11_drivers.md) | Compilación, Buildroot, demonios y drivers |
 | NPU y proyectos | [cap12_npu.md](libro/cap12_npu.md), [cap13_proyectos.md](libro/cap13_proyectos.md) | [08_npu_inferencia.py](08_npu_inferencia.py) y proyectos integradores |
 
+Guías validadas en la placa:
+
+| Guía | Uso |
+|---|---|
+| [Acceso gráfico desde macOS](docs/acceso_grafico_macos.md) | Control remoto de la Orange Pi desde un MacBook con RDP, XRDP, Xvnc y XFCE |
+| [Java 25, Maven y Gradle](docs/java25_gradle_maven.md) | Entorno Java moderno probado en RK3588, con comandos para Gradle y Maven |
+
 ## Mapa conceptual
 
 ```mermaid
