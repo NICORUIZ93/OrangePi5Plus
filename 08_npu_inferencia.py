@@ -176,27 +176,35 @@ print("  Módulo 8: Inferencia en el NPU RK3588")
 print("=" * 65)
 print()
 
-print("PASO 0 — Verificando driver del NPU...")
+print("PASO 0 — Verificando dependencias del entorno...")
 
-# El driver rknpu puede estar presente de dos formas en el kernel BSP:
-#   a) Módulo cargable  → aparece en /proc/modules (lsmod | grep rknpu)
-#   b) Built-in (compilado dentro del kernel) → NO aparece en /proc/modules
+# En el BSP del RK3588 (kernel 5.10, driver rknpu 0.8.x), el driver no
+# expone un character device en /dev/ verificable desde espacio de usuario.
+# La disponibilidad real del hardware se confirma en PASO 3 cuando
+# init_runtime() intenta abrir el driver. Si falla, el mensaje de error
+# en PASO 3 indicará exactamente qué falta.
 #
-# En la imagen oficial de Orange Pi 5 Plus, rknpu es built-in: forma (b).
-# Buscar en /proc/modules da un falso negativo en este caso.
-#
-# La verificación correcta es /dev/rknpu: es el character device que
-# librknnrt.so abre para enviar comandos al hardware. Si existe,
-# el driver está activo independientemente de si es módulo o built-in.
+# Aquí solo verificamos las dependencias Python que deben estar presentes
+# antes de intentar cualquier operación.
 
-DEVICE_NPU = "/dev/rknpu"
+dependencias = {
+    "numpy":      np,
+    "cv2":        cv2,
+    "rknnlite":   RKNNLite,
+}
 
-if os.path.exists(DEVICE_NPU):
-    print(f"  ✓ Driver NPU activo  ({DEVICE_NPU} disponible).")
+todas_ok = True
+for nombre, modulo in dependencias.items():
+    print(f"  ✓ {nombre} disponible")
+
+# Verificar que librknnrt.so está accesible (lo usa rknnlite internamente)
+import ctypes.util
+lib = ctypes.util.find_library("rknnrt")
+if lib:
+    print(f"  ✓ librknnrt.so encontrada ({lib})")
 else:
-    print(f"  ✗ {DEVICE_NPU} no encontrado — el driver rknpu no está activo.")
-    print("    Ejecute ./setup_npu.sh y reinicie el sistema.")
-    sys.exit(1)
+    print("  ⚠ librknnrt.so no encontrada en el path de librerías del sistema.")
+    print("    Si PASO 3 falla, ejecute ./setup_npu.sh para instalarla.")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
