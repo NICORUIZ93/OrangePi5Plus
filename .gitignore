@@ -1,2 +1,6 @@
 __pycache__/
 *.pyc
+
+# Archivos descargados por npu_inference_example.py (grandes, se bajan solos)
+*.rknn
+space_shuttle_224.jpg
