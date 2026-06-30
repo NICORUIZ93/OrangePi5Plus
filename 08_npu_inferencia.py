@@ -63,6 +63,11 @@ import sys
 import time
 import urllib.request
 
+# Silencia los mensajes I/W de librknnrt.so (nivel INFO y WARNING de la C lib).
+# Debe establecerse ANTES de importar rknnlite para que la biblioteca los lea
+# al inicializarse. Valores: 0=ninguno, 1=error, 2=warning, 3=info (defecto).
+os.environ.setdefault("RKNN_LOG_LEVEL", "0")
+
 import cv2
 import numpy as np
 from rknnlite.api import RKNNLite
@@ -171,23 +176,27 @@ print("  Módulo 8: Inferencia en el NPU RK3588")
 print("=" * 65)
 print()
 
-# El módulo rknpu debe estar cargado en el kernel para que RKNNLite funcione.
-# Si no está cargado, init_runtime() fallará con un código de error críptico.
-# Detectarlo aquí da un mensaje más útil al estudiante.
 print("PASO 0 — Verificando driver del NPU...")
 
-modulos_cargados = ""
-try:
-    with open("/proc/modules") as f:
-        modulos_cargados = f.read()
-except OSError:
-    pass   # /proc/modules no disponible en todos los entornos
+# El driver rknpu puede estar presente de dos formas en el kernel BSP:
+#   a) Módulo cargable  → aparece en /proc/modules (lsmod | grep rknpu)
+#   b) Built-in (compilado dentro del kernel) → NO aparece en /proc/modules
+#
+# En la imagen oficial de Orange Pi 5 Plus, rknpu es built-in: forma (b).
+# Buscar en /proc/modules da un falso negativo en este caso.
+#
+# La verificación correcta es /dev/rknpu: es el character device que
+# librknnrt.so abre para enviar comandos al hardware. Si existe,
+# el driver está activo independientemente de si es módulo o built-in.
 
-if "rknpu" not in modulos_cargados:
-    print("  ⚠ Advertencia: el módulo 'rknpu' no aparece en /proc/modules.")
-    print("    Si init_runtime() falla, ejecute: ./setup_npu.sh y reinicie.")
+DEVICE_NPU = "/dev/rknpu"
+
+if os.path.exists(DEVICE_NPU):
+    print(f"  ✓ Driver NPU activo  ({DEVICE_NPU} disponible).")
 else:
-    print("  ✓ Módulo rknpu cargado en el kernel.")
+    print(f"  ✗ {DEVICE_NPU} no encontrado — el driver rknpu no está activo.")
+    print("    Ejecute ./setup_npu.sh y reinicie el sistema.")
+    sys.exit(1)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
