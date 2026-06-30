@@ -85,11 +85,25 @@ python3 04_i2c_escaneo.py
 
 **Conexión:**
 ```
-Pin físico 1  (3.3V) → VCC del módulo
-Pin físico 6  (GND)  → GND del módulo
-Pin físico 3  (SDA)  → SDA del módulo
-Pin físico 5  (SCL)  → SCL del módulo
+   Orange Pi 5 Plus              Módulo OLED SSD1306
+   (cabecero 40 pines)                (128×64 px)
+
+   Pin 1  (3.3V) ──────────────────  VCC
+   Pin 6  (GND)  ──────────────────  GND
+   Pin 3  (SDA, I2C2) ─────────────  SDA
+   Pin 5  (SCL, I2C2) ─────────────  SCL
+
+         ┌────────────────────┐
+   3.3V ─┤ VCC            SDA ├──── Pin 3
+    GND ─┤ GND            SCL ├──── Pin 5
+         │   ┌──────────┐     │
+         │   │ display  │     │
+         │   │ 128 × 64 │     │
+         │   └──────────┘     │
+         └────────────────────┘
 ```
+
+> Bus I2C-2 compartido: cualquier otro sensor I2C (BME280, MPU-6050, etc.) puede conectarse en paralelo a los mismos pines 3 y 5, siempre que su dirección no colisione con 0x3C.
 
 **Pila de software:**
 ```
@@ -179,6 +193,26 @@ El modo 0 es el más común (sensores de temperatura, memorias Flash, pantallas)
 
 **Archivo:** `06_spi_loopback.py`  
 **Hardware opcional:** puente entre pin 19 (MOSI) y pin 21 (MISO)
+
+### El circuito
+
+```
+   Cabecero de 40 pines
+   ┌──────────────────────┐
+   │ ⋮                    │
+   │19 ●── MOSI           │
+   │20 ●   GND            │
+   │21 ●── MISO ──┐       │
+   │22 ●          │       │
+   │23 ●   SCLK   │       │  puente (jumper)
+   │24 ●   CS0    │       │  directo entre
+   │ ⋮            │       │  pin 19 y pin 21
+   └──────────────┼───────┘
+                  │
+        pin 19 ───┘ (cable corto, sin componentes)
+```
+
+Sin esclavo conectado, el puente entre MOSI y MISO hace que cada byte transmitido regrese inmediatamente al maestro, permitiendo validar el bus sin hardware adicional.
 
 **Advertencia crítica sobre `spidev.xfer2()`:**
 
@@ -281,10 +315,21 @@ El período siempre es 20 ms (50 Hz). Es el ancho absoluto del pulso, no el porc
 
 **Conexión:**
 ```
-Pin físico 2  (5V)   → cable rojo   del servo  (VCC)
-Pin físico 6  (GND)  → cable negro  del servo  (GND)
-Pin físico 7  (PWM14)→ cable señal  del servo  (amarillo/blanco)
+   Orange Pi 5 Plus                 Servomotor SG90
+   (cabecero 40 pines)            (3 cables: rojo/negro/señal)
+
+   Pin 2  (5V)   ───────────────────  rojo    (VCC)
+   Pin 6  (GND)  ───────────────────  negro   (GND)
+   Pin 7  (PWM14)───────────────────  amarillo (señal)
+
+         ┌───────────────┐         ┌──────────┐
+    5V ──┤ rojo          │         │   ╱│      │
+   GND ──┤ negro    SG90 ├─────────┤  ╱ │ eje  │
+  PWM14──┤ amarillo      │         │ ╱  │      │
+         └───────────────┘         └──────────┘
 ```
+
+> **Importante:** el SoC entrega 3.3 V máx. por pin, pero el servo necesita 5 V para su motor interno — solo el cable de **señal** (amarillo) va al pin PWM; la alimentación (rojo) debe tomarse del pin de 5V, nunca del pin PWM.
 
 **Código núcleo:**
 

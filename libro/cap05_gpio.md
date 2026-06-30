@@ -56,7 +56,29 @@ Estas bibliotecas acceden directamente a `/dev/mem` (el mapa completo de memoria
 ### El circuito
 
 ```
-Pin físico 12 (3.3V alto) ──┤ 330 Ω ├──┤ LED ├──── Pin físico 6 (GND)
+   Cabecero de 40 pines (vista superior, esquina)
+   ┌─────────────────────────┐
+   │ 1 ●  ● 2    3.3V │ 5V    │
+   │ 3 ●  ● 4          │
+   │ 5 ●  ● 6    GND ──┼──────┼────┐
+   │ 7 ●  ● 8          │      │    │
+   │ 9 ●  ● 10         │      │    │
+   │11 ●  ●12 ──┼──────┘      │    │
+   │   GPIO3_A1 │             │    │
+   └────────────┼─────────────┘    │
+                │                  │
+                ▼                  │
+              ┌───┐                │
+              │330Ω│  resistencia  │
+              └───┘  limitadora    │
+                │                  │
+                ▼                  │
+               ─┬─                 │
+               ╱ ╲   LED            │
+              ╱___╲  (ánodo arriba) │
+                │                  │
+                └──────────────────┘
+                   cátodo → GND
 ```
 
 **Cálculo de la resistencia:** Con V_alto = 3.3 V y V_f ≈ 2.0 V (LED rojo):
@@ -118,6 +140,31 @@ Ciclo 0002 — ALTO  (3.3 V)
 
 **Archivo:** `02_gpio_entrada.py`  
 **Hardware:** Pulsador conectado entre el pin físico 13 (GPIO3_A4) y GND
+
+### El circuito
+
+```
+   Pin 13 (GPIO3_A4) ──────●  terminal A
+                            │
+                          ┌─┴─┐
+                          │ ╱ │   pulsador (normalmente abierto)
+                          └─┬─┘
+                            │
+   Pin 14 (GND)     ───────●  terminal B
+
+   Pull-up interno (configurado en software, Bias.PULL_UP):
+
+   3.3V ──[ R interna ]──┬── Pin 13 (lectura)
+                          │
+                       pulsador
+                          │
+                         GND
+
+   Reposo (abierto):    línea en ALTO (3.3 V)
+   Presionado (cerrado): línea en BAJO (0 V) — se conecta a GND
+```
+
+No se necesita resistencia externa: `Bias.PULL_UP` activa la resistencia de pull-up integrada en el SoC.
 
 ### Polling activo vs detección de flancos
 
