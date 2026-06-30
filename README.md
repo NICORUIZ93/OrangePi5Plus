@@ -1,75 +1,65 @@
-# Orange Pi 5 Plus — RK3588
+# Orange Pi 5 Plus — Desarrollo de sistemas embebidos con Linux
 
-**OS:** Ubuntu 22.04.5 LTS · **Kernel:** 5.10.110-rockchip-rk3588 (vendor BSP)
+**Plataforma:** Orange Pi 5 Plus · **SoC:** Rockchip RK3588  
+**Sistema operativo:** Ubuntu 22.04.5 LTS · **Kernel:** 5.10.110-rockchip-rk3588 (BSP Rockchip)
 
-| Componente | Detalle |
+## Descripción del proyecto
+
+Este repositorio contiene una serie de módulos de código y documentación técnica para la enseñanza de programación de hardware en sistemas embebidos Linux. Los módulos cubren los principales subsistemas de E/S del SoC RK3588: GPIO, PWM, I2C, SPI, el subsistema LED del kernel y la unidad de procesamiento neuronal (NPU).
+
+Cada módulo Python incluye la fundamentación teórica del subsistema correspondiente, la especificación de las conexiones de hardware y el código documentado. La guía `TUTORIAL.md` desarrolla en detalle la teoría y los procedimientos de cada módulo.
+
+## Especificaciones del hardware
+
+| Componente | Especificación |
 |---|---|
-| CPU | 4× Cortex-A76 @ 2.4GHz + 4× Cortex-A55 @ 1.8GHz |
+| SoC | Rockchip RK3588 |
+| CPU | 4× Cortex-A76 @ 2.4 GHz + 4× Cortex-A55 @ 1.8 GHz |
 | RAM | 16 GB LPDDR4X |
-| GPU | Mali-G610 MP4 — OpenGL 3.0 / OpenGL ES 3.1 (Panfrost) |
-| NPU | 6 TOPS (3× 2T, RKNPU) |
-| Ethernet | 2× 2.5GbE RTL8125BG |
-| WiFi | 802.11 a/b/g/n/ac (AP6275P) |
-| GPIO | 40 pines (pinout compatible RPi) |
+| GPU | Mali-G610 MP4 — OpenGL ES 3.1 / OpenGL 3.0 (driver Panfrost) |
+| NPU | 6 TOPS — 3 núcleos × 2 TOPS (driver RKNPU) |
+| Ethernet | 2× 2.5 GbE (Realtek RTL8125BG) |
+| WiFi | IEEE 802.11 a/b/g/n/ac (AP6275P) |
+| GPIO | Cabecero de 40 pines (pinout compatible con Raspberry Pi) |
 
----
+## Configuración inicial del sistema
 
-## Setup inicial (una vez, requiere sudo)
+Los siguientes scripts configuran el sistema operativo para el acceso a los periféricos sin privilegios de superusuario. Se ejecutan una única vez tras la instalación del sistema operativo.
 
 ```bash
-./setup_gpio_permissions.sh   # grupos i2c/spi/gpio, udev, overlay PWM, servicio systemd
-./setup_npu.sh                # instala rknn-toolkit-lite2 y librknnrt.so
+./setup_gpio_permissions.sh   # Grupos, reglas udev, overlay PWM, servicio systemd
+./setup_npu.sh                # Runtime RKNN (rknn-toolkit-lite2 + librknnrt.so)
 sudo reboot
 ```
 
-Después del reinicio todo funciona sin `sudo`.
+Tras el reinicio, todos los módulos de este repositorio funcionan sin `sudo`.
 
----
-
-## Scripts de ejemplo
-
-| Script | Hardware | Notas |
-|---|---|---|
-| `Led_test_blink.py` | GPIO — pin físico 12 (GPIO3_A1) | usa `gpiod`, no `wiringpi` |
-| `servo_test.py` | PWM — pin físico 7 (PWM14) | sysfs `/sys/class/pwm/pwmchip2` |
-| `i2c_scan.py` | I2C bus 2 (pines 3/5) | escanea 0x03–0x77 |
-| `OLED_SSD1306.py` | I2C — pantalla SSD1306 0x3C | requiere `luma.oled` |
-| `spi_loopback_test.py` | SPI0 — `/dev/spidev0.0` | puentea MOSI(19)↔MISO(21) para loopback |
-| `leds_onboard.py` | LEDs soldados `green_led`/`blue_led` | vía `/sys/class/leds/` |
-| `npu_inference_example.py` | NPU — ResNet-18 | descarga modelo y foto automáticamente |
-
----
-
-## Problemas conocidos
-
-### 1. `pwm0-m0` no funciona
-
-El overlay `pwm0-m0` (activo por defecto) comparte pin con `feaa0000.i2c`, que lo reclama primero. Resultado: `I/O error` al escribir en `enable`. El pin de PWM del cabecero (físico 7) usa `pwm14-m0` → `pwmchip2`. `setup_gpio_permissions.sh` corrige `/boot/orangepiEnv.txt`.
+## Dependencias Python
 
 ```bash
-# Verificar qué pwmchip corresponde a qué driver tras el reboot:
-cat /sys/class/pwm/pwmchip*/device/uevent | grep -B1 DRIVER
+pip3 install gpiod smbus2 spidev luma.oled opencv-python numpy
 ```
 
-### 2. NPU reporta errores en dmesg pero funciona
+## Estructura del repositorio
 
-```
-RKNPU: can't request region for resource
-failed to initialize power model
-```
+| Archivo | Subsistema | Descripción |
+|---|---|---|
+| `setup_gpio_permissions.sh` | Sistema | Permisos de GPIO, I2C, SPI, PWM y LEDs |
+| `setup_npu.sh` | Sistema | Instalación del runtime RKNN |
+| `01_gpio_salida.py` | GPIO | Control de salida digital mediante libgpiod v2 |
+| `02_gpio_entrada.py` | GPIO | Lectura de entrada digital con detección de flancos |
+| `03_pwm_servo.py` | PWM | Control de servomotor mediante PWM por hardware |
+| `04_i2c_escaneo.py` | I2C | Enumeración de dispositivos en el bus I2C |
+| `05_i2c_oled.py` | I2C | Control de pantalla OLED SSD1306 (128×64) |
+| `06_spi_loopback.py` | SPI | Verificación del bus SPI mediante loopback |
+| `07_leds_integrados.py` | LED | Control de LEDs de la placa mediante sysfs |
+| `08_npu_inferencia.py` | NPU | Clasificación de imágenes con ResNet-18 en el NPU |
+| `TUTORIAL.md` | Documentación | Guía académica completa con teoría y procedimientos |
 
-Bug del kernel vendor (inofensivo). La inferencia funciona con normalidad.
+## Problemas conocidos del BSP
 
-### 3. `wiringpi` requiere root permanentemente
-
-Accede a `/dev/mem` (memoria física cruda). No hay workaround seguro. Usar `gpiod` para GPIO digital y sysfs para PWM.
-
-### 4. `spidev.xfer2()` modifica la lista de entrada in-place
-
-```python
-# MAL — enviado queda sobreescrito, la comparación es trivialmente True
-recibido = spi.xfer2(enviado)
-
-# BIEN
-recibido = spi.xfer2(list(enviado))
-```
+| Síntoma | Causa raíz | Solución |
+|---|---|---|
+| `I/O error` al escribir en `/sys/class/pwm/pwmchip0/export` | El overlay `pwm0-m0` comparte el pin GPIO0_15 con `feaa0000.i2c`, que lo reclama durante el arranque | `setup_gpio_permissions.sh` cambia el overlay a `pwm14-m0` |
+| Mensajes `RKNPU: can't request region` en dmesg | Defecto del árbol BSP 5.10 | Sin impacto funcional; el NPU opera correctamente |
+| Acceso denegado a `/dev/gpiochipN`, `/dev/i2c-*`, `/dev/spidev*` | El usuario no pertenece a los grupos `gpio`, `i2c` y `spi` | `setup_gpio_permissions.sh` |
