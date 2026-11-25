@@ -10,3 +10,5 @@ space_shuttle_224.jpg
 *.local.md
 credenciales*.txt
 *secrets*
+
+.DS_Store

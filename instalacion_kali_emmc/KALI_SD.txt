@@ -1,0 +1,184 @@
+KALI LINUX INSTALADO EN LA eMMC INTERNA - ORANGE PI 5 PLUS (RK3588)
+Actualizado el 25/11/2026
+========================================================================
+
+RESULTADO FINAL: Kali 2023.2 XFCE arranca desde el modulo eMMC de 233 GB.
+Hay imagen por HDMI, DHCP y SSH. El Ubuntu 22.04 original fue
+sobrescrito (autorizado expresamente por el usuario).
+
+  Hostname:      kali-opi5plus
+  IP cable:      192.168.5.148/24 (DHCP del Mac, MAC c0:74:2b:fe:c0:91)
+  Gateway:       192.168.5.1 (Mac, en8)
+  Usuario SSH:   kali / kali
+  Kernel:        5.10.110-rockchip-rk3588 (aarch64)
+  Rootfs:        ext4 unica particion, UUID 5efbaf88-65d4-41ae-8e89-1ded3c973123
+  SHA256 imagen: 3c0f1c82b49ca1fdce024ce1a6d30f62f71d5da0ee7cf66c535d7bbef9021475
+  Tamano imagen: 13958643712 bytes (27262976 sectores de 512 bytes)
+
+------------------------------------------------------------------------
+1. IMAGEN UTILIZADA
+------------------------------------------------------------------------
+Kali ARM oficial no publica imagen para RK3588 / Orange Pi 5 Plus. Se usa
+la imagen comunitaria de leeboby/kali-images (release 20230702-xfce):
+
+  KALI_SD/kali-linux-2023.2-opi5plus-xfce-arm64.img
+
+Partes descargadas (GitHub limita cada fichero a 2 GB):
+  .img.xzaa  1264518544 bytes
+  .img.xzab  1264518544 bytes (reanudada tras un corte)
+  .img.xz    2529037088 bytes (union de ambas)
+  .img       13958643712 bytes (imagen final)
+
+No habia hash oficial publicado; las sumas anteriores se calcularon
+localmente para detectar corrupcion.
+
+------------------------------------------------------------------------
+2. DONDE ESTA REALMENTE CADA DISCO
+------------------------------------------------------------------------
+- El modulo de 233 GB NO es una microSD: es un modulo eMMC no extraible
+  conectado por el zocalo de 34 pines (/dev/mmcblk1 en Linux).
+- El dispositivo de 64 GB es un PENDRIVE USB, no una microSD.
+- La SPI NOR interna de 16 MB estaba vacia originalmente; se volvio a
+  verificar con `rkdev cs 9` + `rl 0 16` (todo ceros). No contiene
+  bootloader que pueda secuestrar el arranque.
+
+------------------------------------------------------------------------
+3. PROCEDIMIENTO QUE FUNCIONO (desde macOS)
+------------------------------------------------------------------------
+Herramientas:
+  - rkdeveloptool compilado desde github.com/rockchip-linux/rkdeveloptool
+    (con libusb de Homebrew). Se le llama `rkdev` en los comandos.
+  - Loader RAM: rk3588_spl_loader_v1.08.111.bin (Radxa rkbin).
+  - Loader de release ("MiniLoaderAll.bin", 438 KB) del disco externo:
+    /Volumes/Nicolas/02_Tecnologia_Proyectos/Orange_Pi/
+      Android and Linux image writing tool-RKDevTool and driver/
+      MiniLoader - what is needed for burning Linux images/MiniLoaderAll.bin
+    Contiene las entradas FlashHead / FlashData / FlashBoot, necesarias
+    para `ul`. Los loaders de 4 MB (oh_loader.img, rkspi_loader.img,
+    rk3588_spl_loader...) solo sirven para `db` y NO sirven para `ul`.
+
+Paso a paso:
+
+1) Poner la placa en MaskROM:
+   Apagada, mantener pulsado MASK, enchufar alimentacion 3 s, soltar.
+   Comprobar:
+     rkdev ld
+   Debe mostrar: Vid=0x2207,Pid=0x350b,Maskrom
+
+2) Cargar el loader en RAM:
+     rkdev db rk3588_spl_loader_v1.08.111.bin
+
+3) Grabar la imagen Kali COMPLETA, no solo un trozo:
+     rkdev wl 0 kali-linux-2023.2-opi5plus-xfce-arm64.img
+   Tardo ~18 min y termino con Exit=0 / Write LBA 100%.
+
+4) Escribir el IDB en el area de arranque del eMMC con `ul`:
+     rkdev ul MiniLoaderAll.bin
+   Es el paso que faltaba en intentos anteriores. Sin el IDB grabado por
+   `ul`, el BootROM no encuentra bootloader y la placa cae siempre en
+   MaskROM, aunque LBA 64 contenga un SPL valido.
+
+   NOTA: `rkdeveloptool` original falla en este RK3588 porque
+   `RKU_ReadCapability()` devuelve -3 y aborta antes de escribir. Se uso
+   una compilacion parcheada que:
+     a) admite tambien el estado Loader en `upgrade_loader()`;
+     b) no aborta cuando falla `RKU_ReadCapability()`.
+   Alternativa equivalente: usar RKDevTool v3.15 para Windows incluido en
+   el disco externo (escribe el bootloader automaticamente).
+
+5) Reiniciar:
+     rkdev rd
+   Despues, cortar alimentacion 10 s y volver a encender.
+
+6) Red en el Mac (si en8 quedo en 169.254.x.x):
+     sudo ifconfig en8 inet 192.168.5.1 netmask 255.255.255.0 up
+     sudo kill -9 <pids de dnsmasq duplicados>
+   Configuracion de dnsmasq:
+     /opt/homebrew/etc/dnsmasq.d/orangepi.conf
+       interface=en8
+       listen-address=192.168.5.1
+       bind-interfaces
+       port=0
+       dhcp-authoritative
+       dhcp-range=192.168.5.100,192.168.5.150,12h
+       dhcp-option=3,192.168.5.1
+       dhcp-option=6,8.8.8.8
+   Era importante dejar UN SOLO dnsmasq: dos instancias con el mismo
+   rango provocaban "no address range available for DHCP request via en8".
+
+7) Quitar la clave SSH antigua de 192.168.5.148 (era del Ubuntu):
+   Se elimino la linea correspondiente de ~/.ssh/known_hosts. Sin esto,
+   OpenSSH rechaza la autenticacion por password por cambio de host key.
+
+8) Verificacion:
+     ping -c 2 192.168.5.148
+     ssh kali@192.168.5.148
+   Salida:
+     hostname = kali-opi5plus
+     uname -m = aarch64
+     /etc/os-release = Kali GNU/Linux Rolling
+
+------------------------------------------------------------------------
+4. POR QUE FALLARON LOS INTENTOS ANTERIORES
+------------------------------------------------------------------------
+- Se grabo el prefix de Kali (primeros 61440 sectores) y se reconstruyeron
+  GPT / FAT32 / boot.scr, pero sin `ul` el BootROM no tenia IDB valido en
+  el area de arranque: la placa volvia a MaskROM y no habia HDMI ni red.
+- `wl 64 <archivo>` despues de `db` escribe en el area de usuario, NO en
+  el area boot0/boot1 que consulta el BootROM. Por eso copiar el backup
+  del Ubuntu a LBA 64 tampoco sirvio.
+- El loader que se usaba con `db` (rk3588_spl_loader_v1.08.111.bin) no
+  tiene entradas FlashBoot/FlashData/FlashHead, por lo que `ul` con el
+  original abortaba sin mensaje. El unico loader util para `ul` es el
+  MiniLoaderAll.bin de 438 KB indicado arriba.
+- El MBR protector y los atributos de GPT se probaron con CRC correcto;
+  no eran la causa del fallo.
+
+------------------------------------------------------------------------
+5. ARCHIVOS Y RESPALDOS
+------------------------------------------------------------------------
+- Backup de los primeros 32 MB del eMMC original (Ubuntu):
+  /private/var/folders/zm/dckzftkx4ln9_8l231x4pgj80000gn/T/opencode/emmc_backup_first32m.img
+  Util para recuperar el bootloader Ubuntu si se necesitara.
+- imagen Kali fuente y verificada:
+  /Users/nicolasruiz/Documents/Orange Pi/KALI_SD/
+- Este documento se versiono en el repositorio
+  https://github.com/NICORUIZ93/OrangePi5Plus.git
+  (carpeta instalacion_kali_emmc/). No se versionaron imagenes, logs con
+  datos locales ni credenciales reales.
+
+------------------------------------------------------------------------
+6. DESPUES DEL ARRANQUE
+------------------------------------------------------------------------
+La imagen trae las herramientas estandar de Kali (nmap, hydra, john,
+sqlmap, dirb, nikto, aircrack-ng, etc.). No trae NoMachine ni Docker:
+instalarlos desde los repositorios/pagina oficial si se necesitan.
+
+La rootfs ocupa toda la imagen de 13,93 GB dentro del eMMC de 233 GB. Para
+aprovechar el resto del modulo (si el kernel ya ve el tamano completo):
+
+  sudo growpart /dev/mmcblk1 1
+  sudo resize2fs /dev/mmcblk1p1
+
+EL stack Panfork/Rockchip/GStreamer/FFmpeg/Mesa del Ubuntu NO se aplica
+a este Kali: usa su propio kernel y Mesa. No copiar los `hold` de apt.
+
+------------------------------------------------------------------------
+7. COPIA DE SEGURIDAD EN EL DISCO EXTERNO (25/11/2026)
+------------------------------------------------------------------------
+Todo el trabajo se guardo ademas en:
+
+  /Volumes/Nicolas/02_Tecnologia_Proyectos/Orange_Pi/
+    RECUPERACION_KALI_eMMC_2026-11-25/
+
+Contenido:
+  documentacion/   KALI_SD.txt y KALI_SD.pdf
+  imagen/          kali-linux-2023.2-opi5plus-xfce-arm64.img y SHA256.txt
+  backups/         emmc_backup_first32m.img (bootloader Ubuntu original)
+  herramientas/    MiniLoaderAll.bin (438 KB, el unico valido para `ul`),
+                   rk3588_spl_loader_v1.08.111.bin y rkdev_dbg/
+                   (rkdeveloptool compilado y parcheado para `ul`)
+  logs_y_scripts/  dnsmasq.log, flash_kali3.log, ul_ok.log, wl_idb.log,
+                   scripts .py/.sh, GPT5+MBR, bootfs y boot.scr usados
+
+No se toco la microSD de Nintendo Switch ni se hizo commit/push.
