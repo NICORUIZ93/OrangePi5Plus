@@ -182,3 +182,43 @@ Contenido:
                    scripts .py/.sh, GPT5+MBR, bootfs y boot.scr usados
 
 No se toco la microSD de Nintendo Switch ni se hizo commit/push.
+
+------------------------------------------------------------------------
+8. ACTUALIZACION DEL KALI INSTALADO (25/11/2026)
+------------------------------------------------------------------------
+Se accedio por SSH a kali@192.168.5.148. El Kali no tenia salida a
+Internet porque la ruta por defecto del Mac era en0 (192.168.2.1) y en8
+solo servia de red directa. Se activo NAT en el Mac con:
+
+  net.inet.ip.forwarding=1
+  nat on en0 from 192.168.5.0/24 to any -> (en0)
+
+La contrasena de administrador se introdujo en el dialogo de macOS, nunca
+en el chat. Despues de eso el Kali resolvio DNS y descargo 74 MB de listas.
+
+Incidencias resueltas:
+- `apt-get update` fallaba con NO_PUBKEY ED65462EC8D5E4C5 (clave vencida
+  de la imagen 2023.2). Se instalo la clave actual:
+    sudo wget -q -O /usr/share/keyrings/kali-archive-keyring.gpg \
+         https://archive.kali.org/archive-keyring.gpg
+- `apt-get upgrade` dejo a `u-boot-menu` e `inetsim` con errores de dpkg:
+  * u-boot-menu pedia reemplazar /etc/default/u-boot. Se conservo el
+    archivo local con --force-confold (mantiene "Kali Linux" y el DTB
+    rk3588-orangepi-5-plus).
+  * inetsim usaba el modificador "u!" en /usr/lib/sysusers.d/inetsim.conf,
+    no soportado por systemd 252. Se cambio a "u" (quedo copia .bak) y
+    termino de configurarse.
+- `sudo dpkg --configure -a --force-confold` y `dpkg --audit` quedaron
+  limpios.
+
+Estado final de la actualizacion:
+  0 paquetes actualizados, 0 eliminados.
+  1352 paquetes quedaron "kept back": `apt-get -s dist-upgrade` indica
+  que exigirian 1351 actualizaciones, 812 paquetes nuevos y 164 borrados.
+  NO se ejecuto dist-upgrade: es un cambio mayor de dependencias y estaba
+  expresamente descartado. El kernel sigue siendo
+  5.10.110-rockchip-rk3588 y el sistema arranca y responde por SSH.
+
+Logs de esta revision (copiados al disco externo, no al repo):
+  kali_update.log, kali_upgrade.log, kali_upgrade2.log,
+  dpkg_configure.log, dpkg_fix.log.
